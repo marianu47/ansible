@@ -125,12 +125,14 @@
             useradd -m -s /bin/bash ansible
             echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-ansible
             mkdir -p /home/ansible/.ssh
-            curl https://raw.githubusercontent.com/marianu47/terraform/refs/heads/main/ansible_key.pub -o /home/ansible/.ssh/authorized_keys
+            curl https://raw.githubusercontent.com/marianu47/ansible/refs/heads/main/ansible_key.pub -o /home/ansible/.ssh/authorized_keys
             curl https://raw.githubusercontent.com/marianu47/terraform/refs/heads/main/ansible_key -o /home/ansible/.ssh/ansible_key
             chown -R ansible:ansible /home/ansible/.ssh
             chmod 700 /home/ansible/.ssh
             chmod 600 /home/ansible/.ssh/*key*
-
+            curl https://raw.githubusercontent.com/marianu47/ansible/refs/head/main/prerequisites.bash -o /home/ansible/prerequisites.bash
+            chmod +x /home/ansible/prerequisites.bash
+            
             {% if item == 'ansible-controller' %}
             apt-get update -qy && apt-get install -qy ansible
             {% endif %}
