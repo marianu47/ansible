@@ -1,0 +1,155 @@
+---
+- name: Create GCP Infrastructure for Ansible
+  hosts: localhost
+  connection: local
+  vars:
+    project_id: "{{ lookup('env', 'GOOGLE_CLOUD_PROJECT') }}"
+    region: europe-west9
+    zone: europe-west9-a
+    vpc_name: ansible-vpc
+    subnet_name: ansible-subnet
+    subnet_cidr: "10.0.0.0/24"
+    ssh_key_path: ./ansible_key
+    nat_gateway_name: ansible-nat-gateway
+    cloud_router_name: ansible-cloud-router
+
+  tasks:
+    - name: Verify gcloud authentication
+      ansible.builtin.command: gcloud auth list --filter=status:ACTIVE --format="value(account)"
+      register: gcloud_auth
+      changed_when: false
+
+    - name: Set project fact if not set
+      set_fact:
+        project_id: "{{ gcloud_auth.stdout.split('@')[1].split('.')[0] }}"
+      when: project_id == ""
+
+    - name: Generate SSH key pair
+      community.crypto.openssh_keypair:
+        path: "{{ ssh_key_path }}"
+        type: ed25519
+        state: present
+      when: project_id is defined
+
+    - name: Create VPC
+      google.cloud.gcp_compute_network:
+        name: "{{ vpc_name }}"
+        project: "{{ project_id }}"
+        auto_create_subnetworks: false
+        auth_kind: application
+        state: present
+      register: vpc_creation
+      when: project_id is defined
+
+    - name: Create Subnet (corrected format)
+      google.cloud.gcp_compute_subnetwork:
+        name: "{{ subnet_name }}"
+        region: "{{ region }}"
+        network: "{{ vpc_creation }}"
+        ip_cidr_range: "{{ subnet_cidr }}"
+        project: "{{ project_id }}"
+        auth_kind: application
+        state: present
+      when: vpc_creation is changed or vpc_creation is success
+      register: subnet
+
+    - name: Create firewall rule
+      google.cloud.gcp_compute_firewall:
+        name: allow-ssh
+        network: "{{ vpc_creation }}"
+        direction: INGRESS
+        allowed:
+          - ip_protocol: tcp
+            ports: ['22']
+        source_ranges: ["0.0.0.0/0"]
+        project: "{{ project_id }}"
+        auth_kind: application
+        state: present
+
+    - name: Create Cloud Router
+      google.cloud.gcp_compute_router:
+        name: "{{ cloud_router_name }}"
+        region: "{{ region }}"
+        network: "{{ vpc_creation }}"
+        bgp:
+          asn: 64514
+          advertise_mode: CUSTOM
+          advertised_groups:
+          - ALL_SUBNETS
+          advertised_ip_ranges:
+          - range: "{{ subnet_cidr }}"
+        project: "{{ project_id }}"
+        auth_kind: application
+        state: present
+      register: router_creation
+      when: project_id is defined
+
+    - name: Create NAT using gcloud
+      shell: |
+        if ! gcloud compute routers nats describe {{ nat_gateway_name }} \
+        --router={{ cloud_router_name }} \
+        --region={{ region }} >/dev/null 2>&1; then
+          gcloud compute routers nats create {{ nat_gateway_name }} \
+          --region={{ region }} \
+          --router={{ cloud_router_name }} \
+          --auto-network-tier=STANDARD \
+          --auto-allocate-nat-external-ips \
+          --nat-all-subnet-ip-ranges \
+          --enable-endpoint-independent-mapping
+        else
+          echo "NAT gateway already exists"
+        fi
+      args:
+        executable: /bin/bash
+      register: nat_creation
+      changed_when: "'created' in nat_creation.stdout or 'already exists' not in nat_creation.stderr"
+
+    - name: Create Ansible VMs
+      google.cloud.gcp_compute_instance:
+        name: "{{ item }}"
+        zone: "{{ zone }}"
+        machine_type: e2-micro
+        project: "{{ project_id }}"
+        disks:
+          - auto_delete: true
+            boot: true
+            initialize_params:
+              source_image: projects/debian-cloud/global/images/family/debian-12
+        network_interfaces:
+          - network: "{{ vpc_creation }}"
+            subnetwork: "{{ subnet }}"
+        metadata:
+          ssh-keys: "ansible:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOnnEKZxM1jfDGhqjNgLYh7O/w2NCkICxztF/AhXAKGS"
+          startup-script: |
+            #!/bin/bash
+            useradd -m -s /bin/bash ansible
+            echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-ansible
+            mkdir -p /home/ansible/.ssh
+            curl https://raw.githubusercontent.com/marianu47/terraform/refs/heads/main/ansible_key.pub -o /home/ansible/.ssh/authorized_keys
+            curl https://raw.githubusercontent.com/marianu47/terraform/refs/heads/main/ansible_key -o /home/ansible/.ssh/ansible_key
+            chown -R ansible:ansible /home/ansible/.ssh
+            chmod 700 /home/ansible/.ssh
+            chmod 600 /home/ansible/.ssh/*key*
+
+            {% if item == 'ansible-controller' %}
+            apt-get update -qy && apt-get install -qy ansible
+            {% endif %}
+            
+        scheduling:
+          preemptible: true
+        shielded_instance_config:
+          enable_secure_boot: true
+          enable_vtpm: true
+          enable_integrity_monitoring: true
+        service_accounts:
+          - email: default
+            scopes: ["https://www.googleapis.com/auth/cloud-platform"]
+        labels:
+          created-by: ansible
+        auth_kind: application
+      loop:
+        - ansible-controller
+        - ansible-node-1
+        - ansible-node-2
+      register: instances
+      when: project_id is defined
