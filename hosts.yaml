@@ -1,0 +1,17 @@
+all:
+  hosts:
+    ansible-controller:
+      ansible_host: 10.0.0.26
+      ansible_ssh_private_key_file: /home/ansible/.ssh/ansible_key
+      ansible_user: ansible
+      ansible_connection: local
+    ansible-node-1:
+      ansible_host: 10.0.0.27
+      ansible_ssh_private_key_file: /home/ansible/.ssh/ansible_key
+      ansible_user: ansible
+      ansible_ssh_args: "-o StrictHostKeyChecking=no"
+    ansible-node-2:
+      ansible_host: 10.0.0.28
+      ansible_ssh_private_key_file: /home/ansible/.ssh/ansible_key
+      ansible_user: ansible
+      ansible_ssh_args: "-o StrictHostKeyChecking=no"
