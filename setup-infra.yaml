@@ -134,7 +134,7 @@
             chmod +x /home/ansible/prerequisites.bash
             curl https://raw.githubusercontent.com/marianu47/ansible/refs/heads/main/setup-infra.yaml -o /home/ansible/setup-infra.yaml
             curl https://raw.githubusercontent.com/marianu47/ansible/refs/heads/main/hosts -o /home/ansible/hosts
-            https://raw.githubusercontent.com/marianu47/ansible/refs/heads/main/hosts.yaml -o /home/ansible/hosts.yaml
+            curl https://raw.githubusercontent.com/marianu47/ansible/refs/heads/main/hosts.yaml -o /home/ansible/hosts.yaml
             {% if item == 'ansible-controller' %}
             apt-get update -qy && apt-get install -qy ansible
             {% endif %}
