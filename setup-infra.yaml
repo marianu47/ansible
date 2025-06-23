@@ -106,6 +106,7 @@
 
     - name: Create Ansible VMs
       google.cloud.gcp_compute_instance:
+        state: "{{ delete_infra }}" # delete_infra: absent
         name: "{{ item }}"
         zone: "{{ zone }}"
         machine_type: e2-micro
