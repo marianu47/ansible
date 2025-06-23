@@ -12,6 +12,7 @@
     # ssh_key_path: ./ansible_key
     nat_gateway_name: ansible-nat-gateway
     cloud_router_name: ansible-cloud-router
+    delete_infra: present # absent
 
   tasks:
     - name: Verify gcloud authentication
@@ -37,7 +38,7 @@
         project: "{{ project_id }}"
         auto_create_subnetworks: false
         auth_kind: application
-        state: present
+        state: "{{ delete_infra }}"
       register: vpc_creation
       when: project_id is defined
 
@@ -49,7 +50,7 @@
         ip_cidr_range: "{{ subnet_cidr }}"
         project: "{{ project_id }}"
         auth_kind: application
-        state: present
+        state: "{{ delete_infra }}"
       when: vpc_creation is changed or vpc_creation is success
       register: subnet
 
@@ -64,7 +65,7 @@
         source_ranges: ["0.0.0.0/0"]
         project: "{{ project_id }}"
         auth_kind: application
-        state: present
+        state: "{{ delete_infra }}"
 
     - name: Create Cloud Router
       google.cloud.gcp_compute_router:
@@ -80,12 +81,12 @@
           - range: "{{ subnet_cidr }}"
         project: "{{ project_id }}"
         auth_kind: application
-        state: present
+        state: "{{ delete_infra }}"
       register: router_creation
       when: project_id is defined
 
     - name: Create NAT using gcloud
-      shell: |
+      shell: |     
         if ! gcloud compute routers nats describe {{ nat_gateway_name }} \
         --router={{ cloud_router_name }} \
         --region={{ region }} >/dev/null 2>&1; then
