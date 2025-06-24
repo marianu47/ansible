@@ -1,0 +1,9 @@
+---
+- hosts: ansible-nodes
+  serial: 1
+  become: 'yes'
+  tasks:
+    - import_role: 
+        name: static_web_page
+    - import_role:
+        name: shaneholloman.filebeat
