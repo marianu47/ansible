@@ -1,0 +1,5 @@
+---
+# vars file for static_web_page
+number:
+  ansible-node-1: 1
+  ansible-node-2: 2
