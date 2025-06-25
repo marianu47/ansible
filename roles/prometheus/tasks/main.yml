@@ -1,0 +1,89 @@
+---
+# tasks file for prometheus
+- name: ensure group
+  group:
+    name: prometheus
+
+- name: ensure user
+  user:
+    name: prometheus
+    group: prometheus
+
+- name: download prometheus
+  get_url:
+    url: https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz
+    checksum: sha256:{{ prometheus_checksum }}
+    dest: /tmp/
+    owner: ansible
+    mode: "0660"
+  register: prometheus_download
+
+    #- name: wait a bit when system is slwo
+    #pause:
+    #seconds: 10
+
+- name: sometimes checksum_dest is empty
+  shell:
+    cmd: sha256sum --binary /tmp/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz
+  register: checksum_dest
+
+- debug:
+    var: checksum_dest
+
+- name: extract just the sha256
+  set_fact:
+    checksum_dest: "{{ checksum_dest.stdout_lines[0].split(' ')[0] }}"
+
+- name: check that source checksum is the same as destination checksum
+  assert:
+    that:
+      - checksum_dest == prometheus_checksum
+    fail_msg: "the download did not work well. Please check!"
+    success_msg: "the download finished and the checksum matches!"
+
+- name: unpack archive
+  ansible.builtin.unarchive:
+    src: /tmp/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz
+    dest: /tmp/
+
+- name: create config and storage paths
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: "0770"
+  loop:
+    - /etc/prometheus
+    - /data
+
+- name: copy binaries
+  command: cp /tmp/prometheus-3.4.1.linux-amd64/{{ item }} /usr/bin/{{ item }}
+  with_items:
+    - prometheus
+    - promtool
+
+
+- name: add prometheus config
+  template:
+    src: prometheus.yml
+    dest: /etc/prometheus/prometheus.yml
+    owner: prometheus
+    group: prometheus
+    mode: "0660"
+    validate: /usr/bin/promtool check config %s
+
+- name: add startup file
+  template:
+    src: prometheus.service
+    dest: /etc/systemd/system/prometheus.service
+    owner: root
+    group: root
+    mode: "0644"
+      #validate: systemd-analyze verify %s
+
+- name: start service
+  systemd:
+    name: prometheus
+    state: started
+    enabled: true
