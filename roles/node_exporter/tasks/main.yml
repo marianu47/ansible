@@ -1,0 +1,59 @@
+--- 
+# tasks file for node_exporter
+- name: Download node exporter binary
+  ansible.builtin.get_url:
+    url: https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz 
+    dest: /home/ansible/
+
+- name: Create node_exporter directory if it does not exist
+  ansible.builtin.file:
+    path: /home/ansible/node_exporter
+    state: directory
+
+- name: Extract node_exporter archive into ~/node_exporter directory
+  ansible.builtin.unarchive:
+    src: /home/ansible/node_exporter-1.9.1.linux-amd64.tar.gz
+    dest: /home/ansible/node_exporter
+    remote_src: True
+
+      #  - name: Copy node_exporter binary to /opt/node_exporter
+      # ansible.builtin.copy:
+      # src: /home/ansible/node_exporter/node_exporter-1.9.1.linux-amd64
+      # dest: /opt/node_exporter
+      # remote_src: True # This is used to copy from the remote node
+      #become: true
+
+- name: Move node_exporter binary to /opt/node_exporter if it doesn't exist
+  become: True
+  shell: |
+    if [ ! -d "/opt/node_exporter" ]; then
+      mv /home/ansible/node_exporter/node_exporter-1.9.1.linux-amd64/ /opt/node_exporter
+    fi
+
+- name: Copy config file for systemd node_exporter.service
+  ansible.builtin.copy:
+    src: /home/ansible/roles/node_exporter/files/node-exporter-config # This source is on the controller node 
+    dest: /etc/systemd/system/node_exporter.service
+  become: true
+
+- name: Make sure a node_exporter.service is running
+  ansible.builtin.systemd_service:
+    state: started
+    name: node_exporter.service
+    daemon_reload: true # This is similar with "sudo systemctl daemon-reload"
+    enabled: true # This make the service persistent to reboot
+  become: true
+
+- name: Get the metrics
+  ansible.builtin.uri:
+    url: "http://{{ inventory_hostname }}:9100/metrics"
+    return_content: True
+  register: metrics
+  delegate_to: ansible-controller
+
+- name: Check if status code for metrics is 200
+  ansible.builtin.assert:
+    that: metrics.status == 200
+    fail_msg: "FAIL: Status code for curl is {{ metrics.status }}"
+    success_msg: "Success! Metrics are available at http://{{ inventory_hostname }}:9100/metrics"
+  delegate_to: ansible-controller 
