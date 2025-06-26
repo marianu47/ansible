@@ -56,12 +56,12 @@
 
     - name: Create firewall rule
       google.cloud.gcp_compute_firewall:
-        name: allow-ssh
+        name: allow-ssh-monitor
         network: "{{ vpc_creation }}"
         direction: INGRESS
         allowed:
           - ip_protocol: tcp
-            ports: ['22']
+            ports: ['22', '9100', '9090', '3000']
         source_ranges: ["0.0.0.0/0"]
         project: "{{ project_id }}"
         auth_kind: application
