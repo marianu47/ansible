@@ -1,12 +1,12 @@
-[ansible-controller]
-ansible-controller ansible_host=10.0.0.26 ansible_connection=local
+ansible-controller]
+ansible-controller ansible_host=34.155.219.32
 
 [ansible-nodes]
-ansible-node-1 ansible_host=10.0.0.27
-ansible-node-2 ansible_host=10.0.0.28
+ansible-node-1 ansible_host=34.155.26.208
+ansible-node-2 ansible_host=34.163.223.31
 
 
-[ansible-nodes:vars]
+[all:vars]
 ansible_user=ansible
-ansible_ssh_private_key_file=~/.ssh/ansible_key
+ansible_ssh_private_key_file=ansible_key
 ansible_ssh_args='-o StrictHostKeyChecking=no'
