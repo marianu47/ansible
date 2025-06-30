@@ -1,0 +1,27 @@
+ - hosts: all
+   become: true
+   vars:
+     nginx_containers:
+       - name: nginx1
+         port: 8081
+       - name: nginx2
+         port: 8082
+   tasks:
+       - name: install docker
+         apt:
+             name: docker.io
+
+       - name: start service
+         systemd:
+             name: docker
+             state: started
+             enabled: 'yes'
+       
+       - name: run an nginx container
+         community.docker.docker_container:
+             name: "{{ item.name }}"
+             image: nginx
+             state: started
+             published_ports:
+                 - "{{ item.port }}"
+         loop: "{{ nginx_containers }}"
