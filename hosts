@@ -1,4 +1,4 @@
-ansible-controller]
+[ansible-controller]
 ansible-controller ansible_host=34.155.219.32
 
 [ansible-nodes]
