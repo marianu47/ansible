@@ -6,17 +6,11 @@ on:
 jobs:
   ansible-ping:
     runs-on: all
+    container:
+      image: ansible/ansible:latest
     steps:
       - name: checkout
         uses: actions/checkout@v4
-
-      - name: install python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: install ansible
-        run: pip install ansible
 
       - name: add ssh private key
         run: |
