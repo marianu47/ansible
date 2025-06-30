@@ -1,0 +1,29 @@
+name: ping
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ansible-ping:
+    runs-on: all
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: install python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: install ansible
+        run: pip install ansible
+
+      - name: add ssh private key
+        run: |
+          echo "${{ secrets.ANSIBLE_PRIVATE_KEY }}" > ansible
+          chmod 600 ansible_key
+
+      - name: ping hosts using ansible
+        run: |
+          ansible all -m ping -i hosts
+        
