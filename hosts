@@ -1,7 +1,5 @@
-[ansible-controller]
+[all]
 ansible-controller ansible_host=34.155.219.32
-
-[ansible-nodes]
 ansible-node-1 ansible_host=34.155.26.208
 ansible-node-2 ansible_host=34.163.223.31
 
